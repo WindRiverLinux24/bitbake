@@ -445,11 +445,30 @@ class Git(FetchMethod):
                 objects = os.path.join(repourl_path, 'objects')
                 if os.path.isdir(objects) and not os.path.islink(objects):
                     repourl = repourl_path
-            clone_cmd = "LANG=C %s clone --bare --mirror %s %s --progress" % (ud.basecmd, shlex.quote(repourl), ud.clonedir)
+            clone_cmd_pre = "LANG=C %s clone --bare --mirror --progress" % ud.basecmd
+            clone_cmd = "%s %s %s" % (clone_cmd_pre, shlex.quote(repourl), ud.clonedir)
             if ud.proto.lower() != 'file':
                 bb.fetch2.check_network_access(d, clone_cmd, ud.url)
             progresshandler = GitProgressHandler(d)
-            runfetchcmd(clone_cmd, d, log=progresshandler)
+            # If the repo on server is foo.git, both of the following commands
+            # will work:
+            # 1) $ git clone <url>/foo.git
+            # 2) $ git clone <url>/foo
+            # But only the second command works if the repo server is foo
+            # (without .git suffix), so try without '.git' suffix firstly
+            cloned_no_git = False
+            if repourl.endswith('.git'):
+                repourl_no_git = repourl[0:-4]
+                clone_cmd_no_git = "%s %s %s" % (clone_cmd_pre, shlex.quote(repourl_no_git), ud.clonedir)
+                try:
+                    runfetchcmd(clone_cmd_no_git, d, log=progresshandler)
+                    cloned_no_git = True
+                except bb.fetch2.FetchError:
+                    # The error messages have already been saved in the log, so
+                    # just pass to next cmd.
+                    pass
+            if not cloned_no_git:
+                runfetchcmd(clone_cmd, d, log=progresshandler)
 
         # Update the checkout if needed
         if self.clonedir_need_update(ud, d):
