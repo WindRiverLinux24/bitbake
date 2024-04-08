@@ -83,6 +83,7 @@ import subprocess
 import tempfile
 import bb
 import bb.progress
+import hashlib
 from contextlib import contextmanager
 from   bb.fetch2 import FetchMethod
 from   bb.fetch2 import runfetchcmd
@@ -277,7 +278,10 @@ class Git(FetchMethod):
                     ud.unresolvedrev[name] = ud.revisions[name]
                 ud.revisions[name] = self.latest_revision(ud, d, name)
 
-        gitsrcname = '%s%s' % (ud.host.replace(':', '.'), ud.path.replace('/', '.').replace('*', '.').replace(' ','_').replace('(', '_').replace(')', '_'))
+        if ud.proto == "file":
+            gitsrcname = '%s.%s' % (hashlib.md5(ud.path.encode('utf-8')).hexdigest(), os.path.basename(ud.path))
+        else:
+            gitsrcname = '%s%s' % (ud.host.replace(':', '.'), ud.path.replace('/', '.').replace('*', '.').replace(' ','_').replace('(', '_').replace(')', '_'))
         if gitsrcname.startswith('.'):
             gitsrcname = gitsrcname[1:]
 
